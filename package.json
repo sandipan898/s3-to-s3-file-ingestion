@@ -6,6 +6,7 @@
   "main": "src/index.js",
   "dependencies": {
     "@aws-amplify/ui-react": "^2.1.8",
+    "async": "^3.2.3",
     "aws-amplify": "^4.3.12",
     "aws-sdk": "^2.1057.0",
     "formik": "2.2.9",

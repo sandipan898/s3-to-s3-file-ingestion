@@ -1,28 +1,28 @@
 import React, { useState, useEffect } from "react";
 import { Formik, Field, Form } from "formik";
-import { gapi } from "gapi-script";
-
+// import { gapi } from "gapi-script";
+import { each } from 'async'
 import * as AWS from "aws-sdk";
 
-const CLIENT_ID =
-  "546959051313-8l13pmvrkm4tfv8fcqdghs2uj6a354t5.apps.googleusercontent.com";
-const API_KEY = "AIzaSyD7ySMiIUkaq7MakjjDcbeEVQTF9WEIsbg";
-const appId = "546959051313";
+const CLIENT_ID = process.env.REACT_APP_CLIENT_ID;
+const API_KEY = process.env.REACT_APP_API_KEY;
+const appId = process.env.REACT_APP_appId;
 const SCOPES =
   "https://www.googleapis.com/auth/drive.install https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.appdata";
   const DISCOVERY_DOCS = ["https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest"];
 
 
-AWS.config.region = "us-east-1"; // Region
+AWS.config.region = process.env.REACT_APP_AWS_REGION;
 AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-  IdentityPoolId: "us-east-1:9b9e38cd-3ae5-4c5a-9636-d247dc100b7b"
+  IdentityPoolId: process.env.REACT_APP_AWS_INDENTITY_POOL_ID
 });
+const DESTINATION_FOLDER = 's3-ingestion-test';
+const DESTINATION_BUCKET = "qdox-training-pipeline";
+
 
 export default function S3Operation() {
-  // const [bucketName, setBucketName] = useState(null);
-  // const [folderName, setFolderName] = useState(null);
-  const [signedInUser, setSignedInUser] = useState(null);
-  const [oauthToken, setOauthToken] = useState(null);
+  // const [signedInUser, setSignedInUser] = useState(null);
+  // const [oauthToken, setOauthToken] = useState(null);
 
   //   useEffect (()=> {
   //   console.log("signedInUser",signedInUser);
@@ -35,7 +35,7 @@ export default function S3Operation() {
   //   if (oauthToken) {
   //     // Add the Google access token to the Amazon Cognito credentials login map.
   //     AWS.config.credentials = new AWS.CognitoIdentityCredentials({
-  //        IdentityPoolId: 'us-east-1:9b9e38cd-3ae5-4c5a-9636-d247dc100b7b',
+  //        IdentityPoolId: '',
   //        Logins: {
   //           'accounts.google.com': oauthToken
   //        }
@@ -95,67 +95,40 @@ export default function S3Operation() {
   // };
 
   // Create S3 service object
+  
   const handleUserInput = (values) => {
     const bucketName = values.bucketName;
     const folderName = values.folderName;
     // setBucketName(bucketName);
     // setFolderName(folderName);
+
     const s3 = new AWS.S3();
-    
     var done = function(err, data) {
       if (err) console.log(err);
       else console.log(data);
     };
     
-    s3.listObjects({Prefix: oldPrefix}, function(err, data) {
-      if (data.Contents.length) {
-        async.each(data.Contents, function(file, cb) {
+    s3.listObjects({Bucket : bucketName, Prefix: `${folderName}/`}, function(err, data) {
+      if (data && data.Contents && data.Contents.length) {
+        each(data.Contents, function(file, callBack) {
           var params = {
-            Bucket: bucketName,
+            Bucket: DESTINATION_BUCKET,
             CopySource: bucketName + '/' + file.Key,
-            Key: file.Key.replace(oldPrefix, newPrefix)
+            Key: file.Key.replace(`${folderName}/`, `${DESTINATION_FOLDER}/`)
           };
+          console.log("params: ", params);
           s3.copyObject(params, function(copyErr, copyData){
             if (copyErr) {
               console.log(copyErr);
             }
             else {
               console.log('Copied: ', params.Key);
-              cb();
+              callBack();
             }
           });
         }, done);
       }
     });
-    
-    // BUCKET = 'qdox-training-pipeline'
-    var bucketParams = {
-      Bucket : values.bucketName,
-      // Delimeter: '/',
-      Prefix: values.folderName
-    };
-    // Call S3 to list the buckets
-    s3.listObjects(
-      bucketParams,
-      (err, data) => {
-      if (err) {
-        console.log("Error", err);
-      } else {
-        console.log("Success", data);
-      }
-    });
-
-    var copyParams = {
-      Bucket: "s3-ingestion-test", 
-      CopySource: `/${bucketName}/`, 
-      // Key: "HappyFaceCopyjpg"
-     };
-     s3.copyObject(copyParams, function(err, data) {
-       if (err) 
-        console.log(err, err.stack); // an error occurred
-       else
-        console.log(data);           // successful response
-     });
   }
 
   return (
